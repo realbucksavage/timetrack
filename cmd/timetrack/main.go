@@ -47,6 +47,7 @@ func main() {
 			},
 			bucketsCommand,
 			tasksCommand,
+			menuCommand,
 		},
 	}
 

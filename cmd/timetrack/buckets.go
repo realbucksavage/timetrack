@@ -10,6 +10,7 @@ var bucketsCommand = &cli.Command{
 	Name:    "bucket",
 	Aliases: []string{"buckets", "b"},
 	Subcommands: []*cli.Command{
+		menuCommand,
 		{
 			Name:    "list",
 			Aliases: []string{"ls"},

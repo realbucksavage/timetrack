@@ -10,35 +10,23 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-type TaskFile struct {
-	Tasks []*Task
-}
-
 type Task struct {
-	Task   string
-	Bucket string
-	Spent  time.Duration
-}
-
-func (t *Task) String() string {
-	return fmt.Sprintf("%s: %s (%v)", t.Bucket, t.Task, t.Spent)
-}
-
-func (tracker *Tracker) taskBaseDir() string {
-	now := time.Now()
-	base := path.Join(fmt.Sprintf("%d", now.Year()), fmt.Sprintf("%d", now.Month()))
-
-	return tracker.pathTo(base)
+	Task  string
+	Spent time.Duration
 }
 
 func (tracker *Tracker) tasksFile(flags int) (*os.File, error) {
-	baseDir := tracker.taskBaseDir()
+	now := time.Now()
+	year := fmt.Sprintf("%d", now.Year())
+	baseDir := tracker.pathTo(year)
+
 	err := os.MkdirAll(baseDir, 0755)
 	if err != nil {
 		return nil, err
 	}
 
-	location := path.Join(baseDir, "tasks")
+	month := fmt.Sprintf("%d", now.Month())
+	location := path.Join(baseDir, month)
 	return os.OpenFile(location, flags, 0644)
 }
 
@@ -54,8 +42,8 @@ func (tracker *Tracker) Track(bucket, task string, duration time.Duration) (*Tas
 	}
 
 	var match *Task
-	for _, t := range tasks {
-		if !strings.EqualFold(t.Task, task) && !strings.EqualFold(t.Bucket, bucket) {
+	for _, t := range tasks[bucket] {
+		if !strings.EqualFold(t.Task, task) {
 			continue
 		}
 
@@ -67,12 +55,18 @@ func (tracker *Tracker) Track(bucket, task string, duration time.Duration) (*Tas
 		match.Spent += duration
 	} else {
 		match = &Task{
-			Task:   task,
-			Bucket: bucket,
-			Spent:  duration,
+			Task:  task,
+			Spent: duration,
 		}
 
-		tasks = append(tasks, match)
+		list, ok := tasks[bucket]
+		if !ok {
+			list = []*Task{match}
+		} else {
+			list = append(list, match)
+		}
+
+		tasks[bucket] = list
 	}
 
 	file, err := tracker.tasksFile(os.O_CREATE | os.O_RDWR)
@@ -82,14 +76,18 @@ func (tracker *Tracker) Track(bucket, task string, duration time.Duration) (*Tas
 
 	defer mustClose(file)
 
-	if err := toml.NewEncoder(file).Encode(&TaskFile{tasks}); err != nil {
+	if err := file.Truncate(0); err != nil {
+		return nil, err
+	}
+
+	if err := toml.NewEncoder(file).Encode(tasks); err != nil {
 		return nil, err
 	}
 
 	return match, nil
 }
 
-func (tracker *Tracker) ListTasks() ([]*Task, error) {
+func (tracker *Tracker) ListTasks() (map[string][]*Task, error) {
 
 	file, err := tracker.tasksFile(os.O_CREATE | os.O_RDONLY)
 	if err != nil {
@@ -98,10 +96,10 @@ func (tracker *Tracker) ListTasks() ([]*Task, error) {
 
 	defer mustClose(file)
 
-	tasks := new(TaskFile)
-	if _, err := toml.NewDecoder(file).Decode(tasks); err != nil {
+	tasks := make(map[string][]*Task)
+	if _, err := toml.NewDecoder(file).Decode(&tasks); err != nil {
 		return nil, err
 	}
 
-	return tasks.Tasks, nil
+	return tasks, nil
 }

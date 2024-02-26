@@ -1,9 +1,9 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/realbucksavage/timetrack"
@@ -14,6 +14,7 @@ var tasksCommand = &cli.Command{
 	Name:    "task",
 	Aliases: []string{"tasks", "t"},
 	Subcommands: []*cli.Command{
+		menuCommand,
 		{
 			Name:    "list",
 			Aliases: []string{"ls"},
@@ -23,12 +24,22 @@ var tasksCommand = &cli.Command{
 					return err
 				}
 
-				slices.SortFunc(tasks, func(a, b *timetrack.Task) int {
-					return strings.Compare(a.Bucket, b.Bucket)
-				})
+				for bucket, bucketTasks := range tasks {
+					slices.SortFunc(bucketTasks, func(a, b *timetrack.Task) int {
+						return cmp.Compare(a.Spent, b.Spent)
+					})
 
-				for _, task := range tasks {
-					fmt.Printf("%v\n", task)
+					var (
+						sum     time.Duration
+						taskStr string
+					)
+
+					for _, t := range bucketTasks {
+						sum += t.Spent
+						taskStr = fmt.Sprintf("%s\t(%v) %s\n", taskStr, t.Spent, t.Task)
+					}
+
+					fmt.Printf("%s: %v\n%s", bucket, sum, taskStr)
 				}
 
 				return nil
