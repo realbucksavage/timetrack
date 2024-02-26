@@ -2,6 +2,7 @@ package timetrack
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 
@@ -36,7 +37,7 @@ func NewTracker(opts ...Option) (*Tracker, error) {
 
 	info, err := os.Stat(t.baseDir)
 	if err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(t.baseDir, 755)
+		err = os.MkdirAll(t.baseDir, 0755)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot create base directory %q", t.baseDir)
 		}
@@ -68,8 +69,8 @@ func (tracker *Tracker) pathTo(file string) string {
 	return path.Join(tracker.baseDir, file)
 }
 
-func must(err error) {
-	if err != nil {
+func mustClose(c io.Closer) {
+	if err := c.Close(); err != nil {
 		panic(err)
 	}
 }

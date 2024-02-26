@@ -7,13 +7,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	baseDir string
+	tracker *timetrack.Tracker
+)
+
 func main() {
-
-	var (
-		baseDir string
-		tracker *timetrack.Tracker
-	)
-
 	app := &cli.App{
 		Name:        "timetrack",
 		Description: "A simple utility to track time spent over various `buckets` of tasks",
@@ -46,6 +45,8 @@ func main() {
 					return tracker.Status()
 				},
 			},
+			bucketsCommand,
+			tasksCommand,
 		},
 	}
 
